@@ -15,6 +15,11 @@ import "./footer/footer";
 import "./form_tour";
 import { UndoManager } from "./undo_manager";
 
+frappe.ui.form.print_engines = frappe.ui.form.print_engines || {};
+frappe.ui.form.register_print_engine = function (name, renderer) {
+	frappe.ui.form.print_engines[name] = renderer;
+};
+
 frappe.ui.form.Controller = class FormController {
 	constructor(opts) {
 		$.extend(this, opts);
@@ -1482,7 +1487,7 @@ frappe.ui.form.Form = class FrappeForm {
 
 	// ACTIONS
 
-	print_doc() {
+	async print_doc() {
 		if (this.is_dirty()) {
 			frappe.toast({
 				message: __(
@@ -1492,6 +1497,15 @@ frappe.ui.form.Form = class FrappeForm {
 			});
 		}
 
+		const engine_name = frappe.boot.sysdefaults?.default_print_engine;
+		const engine = engine_name && frappe.boot.print_engines?.[engine_name];
+
+		if (!engine?.renderer || !engine?.script || !(await this.open_print_engine(engine))) {
+			this.open_native_print_view();
+		}
+	}
+
+	open_native_print_view() {
 		frappe.route_options = {
 			frm: this,
 		};
@@ -1500,6 +1514,40 @@ frappe.ui.form.Form = class FrappeForm {
 			frappe.route_options.print_format = this._layout_print_format;
 		}
 		frappe.set_route("print", this.doctype, this.doc.name);
+	}
+
+	async open_print_engine(engine) {
+		try {
+			await frappe.require(engine.script);
+
+			const renderer = frappe.ui.form.print_engines[engine.renderer];
+			const open = typeof renderer === "function" ? renderer : renderer?.open;
+
+			if (!open) {
+				return false;
+			}
+
+			const context = {
+				frm: this,
+				doctype: this.doctype,
+				name: this.doc.name,
+				engine,
+			};
+
+			if (typeof renderer?.can_print === "function") {
+				const can_print = await renderer.can_print.call(renderer, context);
+
+				if (!can_print) {
+					return false;
+				}
+			}
+
+			await open.call(renderer, context);
+			return true;
+		} catch (error) {
+			console.error("Failed to open print engine", error);
+			return false;
+		}
 	}
 
 	navigate_records(prev) {

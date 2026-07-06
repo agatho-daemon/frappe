@@ -36,6 +36,26 @@ class TestBootData(IntegrationTestCase):
 		self.assertIsInstance(apps, list)
 		self.assertIn("frappe", apps)
 
+	def test_bootinfo_includes_print_engines(self):
+		from frappe.boot import get_bootinfo
+
+		with self.patch_hooks(
+			{
+				"print_engines": {
+					"test": {
+						"renderer": "test-renderer",
+						"script": "test.bundle.js",
+					}
+				}
+			}
+		):
+			bootinfo = get_bootinfo()
+
+		self.assertEqual(
+			bootinfo.print_engines,
+			{"test": {"renderer": "test-renderer", "script": "test.bundle.js"}},
+		)
+
 
 class TestPermissionQueries(IntegrationTestCase):
 	@classmethod

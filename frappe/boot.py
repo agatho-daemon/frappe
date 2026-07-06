@@ -22,6 +22,7 @@ from frappe.desk.utils import is_item_allowed
 from frappe.email.inbox import get_email_accounts
 from frappe.integrations.frappe_providers.frappecloud_billing import current_site_info, is_fc_site
 from frappe.model.base_document import get_controller
+from frappe.printing import get_print_engines
 from frappe.utils import add_user_info, get_system_timezone
 from frappe.utils.caching import redis_cache
 from frappe.utils.change_log import get_versions
@@ -45,6 +46,7 @@ def get_bootinfo():
 	bootinfo.sitename = frappe.local.site
 	bootinfo.sysdefaults = frappe.defaults.get_defaults()
 	bootinfo.sysdefaults["setup_complete"] = frappe.is_setup_complete()
+	bootinfo.print_engines = get_print_engines()
 
 	bootinfo.server_date = frappe.utils.nowdate()
 
